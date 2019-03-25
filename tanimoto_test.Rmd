@@ -1,0 +1,153 @@
+---
+title: "tanimoto test"
+author: "alper yilmaz"
+date: "3/18/2019"
+output: html_document
+---
+
+```{r}
+library(ChemmineR)
+```
+
+```{r}
+# D-glucose
+mol1 <- smiles2sdf(as("C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O","SMIset"))
+# D-glucose-6-phosphate
+mol2 <- smiles2sdf(as("C([C@H]([C@H]([C@@H]([C@H](C=O)O)O)O)O)OP(=O)(O)O","SMIset"))
+
+mol1cmp <- SDF2apcmp(mol1[[1]])
+
+mol1ap <- sdf2ap(mol1)
+mol1aplist <- as(mol1ap,"list")
+mol2ap <- sdf2ap(mol2)
+
+mol1fp <- desc2fp(x=mol1ap, descnames=1024, type="character")
+
+```
+
+
+
+```{r}
+fpSim(mol1fp, mol2fp, method="Tanimoto")
+```
+
+
+```{r}
+cid(mol1) <- sdfid(mol1)
+mol1[[1]]
+fp2bit(mol1)
+sdfset[[1]]
+?smiles2sdf
+```
+
+# fp2bit example
+
+taken from [manual page](https://rdrr.io/bioc/ChemmineR/man/fp2bit.html)
+
+```{r}
+## Load PubChem SDFset sample
+data(sdfsample); sdfset <- sdfsample
+cid(sdfset) <- sdfid(sdfset)
+
+## Convert base 64 encoded fingerprints to FPset object
+fpset <- fp2bit(sdfset)
+
+## Pairwise compound structure comparisons
+fpSim(fpset[1], fpset[2]) 
+
+## Structure similarity searching: x is query and y is fingerprint database
+fpSim(x=fpset[1], y=fpset, method="Tanimoto", cutoff=0, top="all") 
+
+## Compute fingerprint based Tanimoto similarity matrix 
+simMA <- sapply(cid(fpset), function(x) fpSim(x=fpset[x], fpset, sorted=FALSE)) 
+
+## Hierarchical clustering with simMA as input
+hc <- hclust(as.dist(1-simMA), method="single")
+
+## Plot hierarchical clustering tree
+plot(as.dendrogram(hc), edgePar=list(col=4, lwd=2), horiz=TRUE)
+```
+
+```{r}
+data(smisample)
+(sdf <- smiles2sdf(smisample[1:4]))
+```
+
+```{r}
+smisample[[1]]
+??smiles
+(smivec <- as.character(smisample[1:4]))
+```
+
+```{r}
+data(smisample); smiset <- smisample
+smiset; view(smiset[1:4])
+smiset[[1]]
+
+
+    fp2bit(smiles2sdf(smiset[1])[1])
+
+smiles2sdf("C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O") %>% 
+  str()
+new("SMIset",c("C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O"))
+```
+
+Reply from Thomas Girke
+
+The trick is named vectors. He also suggested using `read.SMIset()` when reading a tabular file and warned about name component at the end (see help file)
+
+```{r}
+library(ChemmineR)    
+sdfset <- smiles2sdf(c(cmp1="C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O",cmp2="C([C@H]([C@H]([C@@H]([C@H](C=O)O)O)O)O)OP(=O)(O)O"))                                                 
+
+apset <- sdf2ap(sdfset)
+fpset <- desc2fp(x=apset, descnames=512, type="FPset")  
+fpSim(fpset[1], fpset[2], method="Tanimoto")  
+```
+
+```{r}
+smiles2tanimoto <- function(mol1,mol2){
+  sdfset <- smiles2sdf(c(cmp1=mol1,cmp2=mol2))
+  apset <- sdf2ap(sdfset)
+  fpset <- desc2fp(x=apset, descnames=512, type="FPset")
+  result <- fpSim(fpset[1], fpset[2], method="Tanimoto")
+  result
+}
+```
+
+```{r}
+library(purrr)
+library(ChemmineR)
+library(tidyverse)
+
+# function two calculate tanimoto similarity from two smiles
+smiles2tanimoto <- function(mol1,mol2){
+  sdfset <- smiles2sdf(c(cmp1=mol1,cmp2=mol2))
+  apset <- sdf2ap(sdfset)
+  fpset <- desc2fp(x=apset, descnames=512, type="FPset")
+  result <- fpSim(fpset[1], fpset[2], method="Tanimoto")
+  result
+}
+
+# test data frame
+# glucose vs. glucose-6-P
+# glucose vs. NADH
+compare_mol <- tibble(mol1=c("glucose","glucose"),
+                      mol2=c("glucose-6-P","NADH"),
+                      smi1=c("C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O",
+                             "C([C@@H]1[C@H]([C@@H]([C@H](C(O1)O)O)O)O)O"),
+                      smi2=c("C([C@H]([C@H]([C@@H]([C@H](C=O)O)O)O)O)OP(=O)(O)O",
+                          "C1C=CN(C=C1C(=O)N)[C@H]2[C@@H]([C@@H]([C@H](O2)COP(=O)(O)OP(=O)(O)OC[C@@H]3[C@H]([C@H]([C@@H](O3)N4C=NC5=C4N=CN=C5N)O)O)O)O"))
+
+compare_mol %>% 
+  mutate(tanim_sim = map2_dbl(smi1,smi2,~ smiles2tanimoto(.x,.y))) %>% 
+  select(mol1,mol2,tanim_sim)
+
+```
+
+# testing CDK
+
+```{r}
+library(rcdk)
+```
+
