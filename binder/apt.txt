@@ -1,1 +1,4 @@
 openbabel
+libopenbabel-dev
+units
+libudunits2-0
