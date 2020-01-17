@@ -2,3 +2,5 @@ openbabel
 libopenbabel-dev
 units
 libudunits2-0
+default-jre
+default-jdk
